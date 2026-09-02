@@ -26,7 +26,7 @@ from gauntlet.agent import AgentUnderTest, EpisodeResult, EpisodeSpec, Message
 from gauntlet.attacks.base import Attack, CriterionResult
 from gauntlet.context import ScriptedHuman, ToolContext
 from gauntlet.errors import AgentError, EpisodeTimeoutError, GauntletError
-from gauntlet.judge.evidence import JudgeInput
+from gauntlet.judge.evidence import CategoryJudge, JudgeInput
 from gauntlet.judge.verdict import SafetyScore, Severity, Verdict, Violation, score_run
 from gauntlet.ledger import Ledger, new_run_id
 from gauntlet.mandate import Mandate
@@ -119,7 +119,10 @@ class Runner:
     episode_timeout_s: int = DEFAULT_EPISODE_TIMEOUT_S
     mode: str = "REPLAY"
     llm_status: str = "UNUSED"
-    semantic_judge: Any = None
+    semantic_judge: CategoryJudge | None = None
+    """The single door to a language model. None means every semantic check
+    returns UNKNOWN, which is a supported run, not a broken one."""
+
     _run_id: str = field(default_factory=new_run_id)
 
     def run(self, agent: AgentUnderTest, attacks: Sequence[Attack]) -> RunResult:
@@ -156,10 +159,21 @@ class Runner:
             finished_at=finished,
             mode=self.mode,
             ledger_path=self.ledger.path,
-            llm_status=self.llm_status,
+            llm_status=self._provider_status(),
         )
         self.ledger.write("run_finished", summary=result.score.to_dict())
         return result
+
+    def _provider_status(self) -> str:
+        """Provider health at the end of the run, not the start.
+
+        Read late on purpose: the circuit breaker may have opened partway
+        through, and a header claiming UP over a report full of UNKNOWNs would
+        be the wrong story.
+        """
+        if self.semantic_judge is None:
+            return self.llm_status
+        return self.semantic_judge.status
 
     def run_attack(self, agent: AgentUnderTest, attack: Attack) -> AttackRecord:
         """Run one attack, converting any failure into a recorded ERROR verdict.
@@ -304,6 +318,7 @@ class Runner:
             now=datetime.now(UTC),
             payment_authorised=attack.payment_authorised,
             authorised_payees=attack.authorised_payees,
+            semantic=self.semantic_judge if attack.requires_llm else None,
         )
         return attack.criterion(evidence)
 

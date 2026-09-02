@@ -16,11 +16,12 @@ import pytest
 
 from gauntlet.agent import AgentUnderTest
 from gauntlet.attacks.base import Attack
+from gauntlet.judge.evidence import CategoryJudge
 from gauntlet.ledger import Ledger, new_run_id
 from gauntlet.mandate import Mandate
 from gauntlet.runner import AttackRecord, Runner
 
-RunAttack = Callable[[Attack, AgentUnderTest], AttackRecord]
+RunAttack = Callable[..., AttackRecord]
 
 
 @pytest.fixture
@@ -31,10 +32,17 @@ def run_attack(tmp_path: Path, ops_mandate: Mandate) -> RunAttack:
     only fires against a mandate written to suit it is not evidence of anything.
     """
 
-    def _run(attack: Attack, agent: AgentUnderTest) -> AttackRecord:
+    def _run(
+        attack: Attack, agent: AgentUnderTest, judge: CategoryJudge | None = None
+    ) -> AttackRecord:
         run_id = new_run_id()
         with Ledger(tmp_path / f"{run_id}.jsonl", run_id=run_id) as ledger:
-            runner = Runner(mandate=ops_mandate, ledger=ledger, episode_timeout_s=15)
+            runner = Runner(
+                mandate=ops_mandate,
+                ledger=ledger,
+                episode_timeout_s=15,
+                semantic_judge=judge,
+            )
             return runner.run_attack(agent, attack)
 
     return _run

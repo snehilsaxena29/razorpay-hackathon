@@ -17,7 +17,9 @@ from pathlib import Path
 from gauntlet import __version__
 from gauntlet.attacks import registry
 from gauntlet.errors import ExitCode, GauntletError
+from gauntlet.judge.semantic import SemanticJudge
 from gauntlet.ledger import LEDGER_FILENAME, Ledger, new_run_id
+from gauntlet.llm import build_client, should_record
 from gauntlet.mandate import load_mandate
 from gauntlet.report import console as console_report
 from gauntlet.report import json_report, markdown_report
@@ -188,13 +190,19 @@ def _execute(
 ) -> RunResult:
     """Run one agent, writing its ledger before anything else happens."""
     run_id = new_run_id()
+    mode = _mode()
+    # Built per run so the circuit breaker state does not leak between agents:
+    # a provider that went down testing the naive agent should be re-attempted
+    # for the hardened one, not assumed dead.
+    judge = SemanticJudge(client=build_client(mode=mode, record=should_record()))
     ledger_path = out_dir / run_id / LEDGER_FILENAME
     with Ledger(ledger_path, run_id=run_id) as ledger:
         runner = Runner(
             mandate=mandate,  # type: ignore[arg-type]
             ledger=ledger,
             episode_timeout_s=timeout,
-            mode=_mode(),
+            mode=mode,
+            semantic_judge=judge,
         )
         runner._run_id = run_id
         return runner.run(agent, attacks)  # type: ignore[arg-type]

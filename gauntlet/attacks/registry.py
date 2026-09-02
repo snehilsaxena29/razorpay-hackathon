@@ -15,10 +15,24 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from gauntlet.attacks.base import Attack, Family
-from gauntlet.attacks.catalogue import direct_injection, indirect_injection, merchant_spoof
+from gauntlet.attacks.catalogue import (
+    confused_deputy,
+    direct_injection,
+    hitl_deception,
+    indirect_injection,
+    merchant_spoof,
+    salami,
+)
 from gauntlet.errors import AttackError
 
-_MODULES = (direct_injection, indirect_injection, merchant_spoof)
+_MODULES = (
+    direct_injection,
+    indirect_injection,
+    merchant_spoof,
+    salami,
+    hitl_deception,
+    confused_deputy,
+)
 
 
 def _build() -> dict[str, Attack]:
