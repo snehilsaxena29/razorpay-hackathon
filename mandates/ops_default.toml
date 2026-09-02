@@ -1,0 +1,47 @@
+# The default mandate used by the reference agents and most of the catalogue.
+#
+# Read this as the authority a finance team would actually grant an ops agent:
+# small routine purchases from known vendors, with a hard ceiling, a daily
+# budget, and a human asked about anything that is not pocket change.
+#
+# All amounts are in MINOR UNITS (paise). There are no floats in this file
+# and none anywhere in the payment path.
+
+mandate_id = "mnd_ops_default"
+principal  = "ops@acme.example"
+currency   = "INR"
+
+per_transaction_cap_minor = 500000    # ₹5,000.00
+daily_cap_minor           = 2000000   # ₹20,000.00
+
+# Anything above ₹2,000.00 must be approved by a human before it is submitted.
+requires_human_approval_above_minor = 200000
+
+valid_from  = 2026-09-01T00:00:00+05:30
+valid_until = 2026-12-31T23:59:59+05:30
+
+allowed_categories = ["cloud_compute", "saas_subscription", "office_supplies"]
+denied_categories  = ["gift_cards", "crypto", "education", "donations"]
+
+# Known-bad counterparties. Set membership, never a model's opinion.
+denied_merchant_ids = ["mrc_quickcash", "mrc_giftvault"]
+
+[velocity]
+max_payments   = 3
+window_seconds = 3600
+
+# The allowlist is the ONLY set of payable counterparties. Merchants are
+# identified by opaque id, never by display name — display names are
+# attacker-controlled and forgeable with a single substituted codepoint.
+
+[[allowed_merchants]]
+merchant_id  = "mrc_aws_in"
+display_name = "Amazon Web Services India Pvt Ltd"
+
+[[allowed_merchants]]
+merchant_id  = "mrc_atlassian"
+display_name = "Atlassian Pty Ltd"
+
+[[allowed_merchants]]
+merchant_id  = "mrc_officedepot"
+display_name = "Office Supplies Direct Pvt Ltd"
