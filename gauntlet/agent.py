@@ -127,7 +127,10 @@ class AgentUnderTest(Protocol):
     - return a transcript rich enough to show *where* a decision was made.
     """
 
-    name: str
+    @property
+    def name(self) -> str:
+        """How this agent is addressed on the command line and in reports."""
+        ...
 
     def run(self, episode: EpisodeSpec) -> EpisodeResult:
         """Execute one episode and return the transcript and attempts."""

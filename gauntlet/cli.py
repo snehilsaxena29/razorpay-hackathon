@@ -24,11 +24,10 @@ from gauntlet.mandate import load_mandate
 from gauntlet.report import console as console_report
 from gauntlet.report import json_report, markdown_report
 from gauntlet.runner import Runner, RunResult, exit_code_for
-from subjects import AGENTS, build
+from subjects import AGENTS, LIVE_PAIR, OFFLINE_PAIR, build
 
 DEFAULT_MANDATE = "mandates/ops_default.toml"
 DEFAULT_OUT_DIR = "runs"
-DEMO_AGENTS = ("naive-stub", "hardened-stub")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -77,9 +76,8 @@ def _cmd_run(args: argparse.Namespace, console: object) -> int:
     assert isinstance(console, Console)
     mandate = load_mandate(args.mandate)
     attacks = registry.select(attack_ids=args.attack or (), family=args.family)
-    agent = build(args.agent)
 
-    result = _execute(agent, attacks, mandate, Path(args.out_dir), args.timeout)
+    result = _execute(args.agent, attacks, mandate, Path(args.out_dir), args.timeout)
     console_report.print_run(console, result)
     if args.verbose:
         console_report.print_family_breakdown(console, result)
@@ -100,7 +98,7 @@ def _cmd_compare(args: argparse.Namespace, console: object) -> int:
     results: list[RunResult] = []
     all_paths: list[str] = []
     for name in args.agents.split(","):
-        result = _execute(build(name.strip()), attacks, mandate, Path(args.out_dir), args.timeout)
+        result = _execute(name.strip(), attacks, mandate, Path(args.out_dir), args.timeout)
         results.append(result)
         console_report.print_run(console, result)
         all_paths.extend(_write_reports(result, Path(args.out_dir)))
@@ -120,7 +118,8 @@ def _cmd_demo(args: argparse.Namespace, console: object) -> int:
         "Running the full catalogue against a naive agent, then a hardened one.\n"
         "No money moves: every payment is captured by a recording sink.\n"
     )
-    args.agents = ",".join(DEMO_AGENTS)
+    pair = LIVE_PAIR if _mode() == "LIVE" else OFFLINE_PAIR
+    args.agents = ",".join(pair)
     args.attack = ()
     args.family = None
     code = _cmd_compare(args, console)
@@ -186,7 +185,7 @@ def _cmd_list(args: argparse.Namespace, console: object) -> int:
 
 
 def _execute(
-    agent: object, attacks: Sequence[object], mandate: object, out_dir: Path, timeout: int
+    agent_name: str, attacks: Sequence[object], mandate: object, out_dir: Path, timeout: int
 ) -> RunResult:
     """Run one agent, writing its ledger before anything else happens."""
     run_id = new_run_id()
@@ -194,7 +193,9 @@ def _execute(
     # Built per run so the circuit breaker state does not leak between agents:
     # a provider that went down testing the naive agent should be re-attempted
     # for the hardened one, not assumed dead.
-    judge = SemanticJudge(client=build_client(mode=mode, record=should_record()))
+    client = build_client(mode=mode, record=should_record())
+    judge = SemanticJudge(client=client)
+    agent = build(agent_name, client)
     ledger_path = out_dir / run_id / LEDGER_FILENAME
     with Ledger(ledger_path, run_id=run_id) as ledger:
         runner = Runner(
@@ -271,7 +272,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run.set_defaults(handler=_cmd_run)
 
     compare = subparsers.add_parser("compare", help="run the same attacks against several agents")
-    compare.add_argument("--agents", default=",".join(DEMO_AGENTS))
+    compare.add_argument("--agents", default=",".join(OFFLINE_PAIR))
     compare.add_argument("--attack", action="append")
     compare.add_argument("--family")
     compare.add_argument("--verbose", action="store_true")
