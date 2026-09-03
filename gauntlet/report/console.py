@@ -35,12 +35,28 @@ _SEVERITY_STYLE = {
 }
 
 
+def ensure_utf8_streams() -> None:
+    """Force UTF-8 on stdout and stderr.
+
+    A Windows terminal defaults to a legacy code page that cannot encode ``₹``,
+    and the first formatted rupee amount would otherwise raise
+    ``UnicodeEncodeError`` mid-run. Found the hard way; the demo is recorded on
+    Windows.
+
+    Called by the CLI before anything prints, and by any standalone script that
+    writes to a terminal.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if encoding != "utf8" and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def make_console() -> Console:
     """A console that survives a Windows terminal in a legacy code page.
 
     ``rich`` handles most of this, but the underlying stream still has to be
-    able to encode ``₹``. Without the reconfiguration in ``cli``, the first
-    formatted amount raises ``UnicodeEncodeError`` and the demo dies on stage.
+    able to encode ``₹``, which is what :func:`ensure_utf8_streams` guarantees.
     """
     return Console(file=sys.stdout, highlight=False, soft_wrap=False)
 

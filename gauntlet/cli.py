@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -32,7 +31,7 @@ DEFAULT_OUT_DIR = "runs"
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. Returns a process exit code and never raises to the caller."""
-    _ensure_utf8_console()
+    console_report.ensure_utf8_streams()
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -48,20 +47,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             "so far; regenerate with [bold]gauntlet report <run_id>[/bold]."
         )
         return int(ExitCode.DEGRADED)
-
-
-def _ensure_utf8_console() -> None:
-    """Force UTF-8 on stdout and stderr.
-
-    A Windows terminal defaults to a legacy code page that cannot encode ``₹``,
-    and the first formatted rupee amount would otherwise raise
-    ``UnicodeEncodeError`` mid-run. Found the hard way; the demo is recorded on
-    Windows.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        encoding = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
-        if encoding != "utf8" and hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 # ---------------------------------------------------------------------------

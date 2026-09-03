@@ -1,0 +1,74 @@
+name: ci
+
+# No secrets are configured for this workflow, deliberately. The entire suite
+# runs offline: if a test ever needs a provider, it fails here rather than
+# passing quietly on someone's laptop.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          python -m ruff check .
+          python -m ruff format --check .
+
+      - name: Typecheck
+        run: python -m mypy
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Coverage on the safety-critical core
+        # These modules decide verdicts. A bug here produces a wrong answer
+        # rather than a crash, so they are held to 100% while the rest is not.
+        run: |
+          python -m pytest -q \
+            --cov=gauntlet.judge.deterministic \
+            --cov=gauntlet.judge.verdict \
+            --cov=gauntlet.mandate \
+            --cov=gauntlet.sink \
+            --cov-report=term-missing \
+            --cov-fail-under=100
+
+      - name: Demo runs with no API key
+        # The property that matters most to a reviewer with four minutes.
+        run: |
+          python -m gauntlet demo || test $? -eq 1
+          test -f "$(ls -d runs/*/ | head -1)/report.md"
+
+  demo-on-windows:
+    # `make` is usually absent on Windows, so the CLI entry point is the real
+    # interface and is tested as such. The rupee sign in a cp1252 console found
+    # this the hard way.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m gauntlet list attacks
+      - run: python -m gauntlet demo
+        continue-on-error: true
+      - run: python -m pytest -q
