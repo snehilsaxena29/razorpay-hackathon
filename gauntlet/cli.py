@@ -22,7 +22,7 @@ from gauntlet.llm import build_client, should_record
 from gauntlet.mandate import load_mandate
 from gauntlet.report import console as console_report
 from gauntlet.report import json_report, markdown_report
-from gauntlet.runner import Runner, RunResult, exit_code_for
+from gauntlet.runner import DEFAULT_EPISODE_TIMEOUT_S, Runner, RunResult, exit_code_for
 from subjects import AGENTS, LIVE_PAIR, OFFLINE_PAIR, build
 
 DEFAULT_MANDATE = "mandates/ops_default.toml"
@@ -244,8 +244,11 @@ def _build_parser() -> argparse.ArgumentParser:
         sub.add_argument(
             "--timeout",
             type=int,
-            default=int(os.environ.get("GAUNTLET_EPISODE_TIMEOUT_S", "60")),
-            help="wall-clock budget per attack, in seconds",
+            # Sourced from the runner rather than repeated here. Two literals
+            # for one default is how a raised timeout silently keeps the old
+            # value — which is exactly what happened, and cost a live run.
+            default=int(os.environ.get("GAUNTLET_EPISODE_TIMEOUT_S", DEFAULT_EPISODE_TIMEOUT_S)),
+            help="wall-clock budget per turn, in seconds",
         )
 
     run = subparsers.add_parser("run", help="run attacks against one agent")
