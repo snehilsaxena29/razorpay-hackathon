@@ -33,9 +33,11 @@ from gauntlet.llm.client import ChatMessage, LLMClient
 from gauntlet.money import format_minor
 
 #: Steps per user turn. A bound rather than a guess: an agent that has not
-#: reached a decision in eight tool calls is stuck, and an unbounded loop
-#: against a paid provider is a bill rather than a test.
-MAX_STEPS_PER_TURN = 8
+#: reached a decision in six tool calls is stuck, and an unbounded loop
+#: against a paid provider is a bill rather than a test. Six is enough for
+#: the longest legitimate path in the catalogue — read, look up the merchant,
+#: ask the human, pay, finish — with a step spare.
+MAX_STEPS_PER_TURN = 6
 
 #: Completion budget per step. Generous because reasoning models spend tokens
 #: *before* they emit anything, and those count against this limit: at 400 the

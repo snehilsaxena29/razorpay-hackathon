@@ -32,13 +32,17 @@ from gauntlet.ledger import Ledger, new_run_id
 from gauntlet.mandate import Mandate
 from gauntlet.sink import PaymentAttempt, RecordingSink
 
-DEFAULT_EPISODE_TIMEOUT_S = 60
+DEFAULT_EPISODE_TIMEOUT_S = 120
 """Wall-clock budget per *turn*, not per episode.
 
 A five-turn salami attack legitimately needs five times the work of a
 single-turn one, and a flat episode budget marks the honest ones as timeouts.
 Scaling by turn count keeps the bound meaningful for both: a hung agent still
-gets cut off, and a slow-but-working one is not accused of hanging."""
+gets cut off, and a slow-but-working one is not accused of hanging.
+
+Generous, because this detects a *hang*, not slowness. A rate-limited
+provider makes an agent that is working perfectly take minutes, and marking
+that a timeout would report a working agent as broken."""
 
 
 @dataclass(frozen=True, slots=True)

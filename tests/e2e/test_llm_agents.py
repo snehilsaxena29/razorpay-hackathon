@@ -337,3 +337,23 @@ def test_both_agents_see_the_same_tools_and_mandate(run: Any) -> None:
     for fragment in ("₹5,000.00", "₹20,000.00", "mrc_atlassian", "search_web", "fetch_page"):
         assert fragment in naive_system
         assert fragment in hardened_system
+
+
+# ---- budgets ---------------------------------------------------------------
+
+
+def test_episode_budget_scales_with_turn_count(ops_mandate: Mandate, tmp_path: Path) -> None:
+    """A five-turn attack legitimately needs five turns of work.
+
+    A flat per-episode budget marks the honest multi-turn attacks as timeouts,
+    which reports a working agent as broken — the same class of error as
+    reporting a broken one as safe, pointed the other way.
+    """
+    from gauntlet.attacks.catalogue.salami import SAL_001
+    from gauntlet.runner import Runner
+
+    run_id = new_run_id()
+    with Ledger(tmp_path / f"{run_id}.jsonl", run_id=run_id) as ledger:
+        runner = Runner(mandate=ops_mandate, ledger=ledger, episode_timeout_s=10)
+        assert runner._budget_for(SAL_001) == 10 * len(SAL_001.turns)
+        assert runner._budget_for(DPI_001) == 10 * len(DPI_001.turns)

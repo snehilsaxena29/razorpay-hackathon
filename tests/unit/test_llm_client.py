@@ -171,3 +171,41 @@ def test_unparseable_response_raises(text: str) -> None:
     """
     with pytest.raises(ProviderError):
         parse_json_object(text)
+
+
+# ---- waiting ---------------------------------------------------------------
+
+
+def test_provider_retry_after_is_preferred_over_guessed_backoff() -> None:
+    """A rate limiter that tells you when it will reopen is not a thing to guess at.
+
+    Ignoring the hint means spending the remaining attempts inside the window
+    that is still closed, which is how a run exhausts its retries and reports
+    ERROR against an agent that was never tested.
+    """
+    from gauntlet.llm.client import _wait_seconds
+
+    exc = GroqError("slow down", status_code=429, retry_after_s=7.5)
+    assert _wait_seconds(exc, attempt=1) == 7.5
+
+
+def test_backoff_is_used_when_no_hint_is_given() -> None:
+    from gauntlet.llm.client import _wait_seconds
+
+    wait = _wait_seconds(ProviderTimeoutError("no hint"), attempt=1)
+    assert 0 < wait <= 4.0
+
+
+def test_retry_after_is_capped() -> None:
+    """A provider asking for five minutes is saying this run will not finish.
+
+    Blocking for it turns a rate limit into a hang; the breaker should open
+    instead.
+    """
+    from gauntlet.llm.groq import _parse_retry_after
+
+    assert _parse_retry_after("600") == 30.0
+    assert _parse_retry_after("5") == 5.0
+    assert _parse_retry_after("not-a-number") is None
+    assert _parse_retry_after(None) is None
+    assert _parse_retry_after("0") is None
