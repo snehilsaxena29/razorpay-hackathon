@@ -160,7 +160,7 @@ class ResilientClient:
                 )
                 if not _is_retryable(exc) or attempt == self.max_retries:
                     break
-                time.sleep(_backoff_seconds(attempt))
+                time.sleep(_wait_seconds(exc, attempt))
             else:
                 self._consecutive_failures = 0
                 return result
@@ -187,6 +187,20 @@ def _is_retryable(exc: ProviderError) -> bool:
         return True
     status = getattr(exc, "status_code", None)
     return status is None or status == 429 or status >= 500
+
+
+def _wait_seconds(exc: ProviderError, attempt: int) -> float:
+    """How long to wait before retrying.
+
+    Prefers the provider's own ``Retry-After`` when it gave one. Exponential
+    backoff is a guess; a rate limiter telling you exactly when it will let you
+    back in is not, and ignoring it means burning the remaining attempts inside
+    the window that is still closed.
+    """
+    hinted = getattr(exc, "retry_after_s", None)
+    if isinstance(hinted, (int, float)) and hinted > 0:
+        return float(hinted)
+    return _backoff_seconds(attempt)
 
 
 def _backoff_seconds(attempt: int) -> float:

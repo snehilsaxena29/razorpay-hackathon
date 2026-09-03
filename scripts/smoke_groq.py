@@ -48,7 +48,11 @@ def main() -> int:
                 ),
                 ChatMessage(role="user", content="Say the provider is reachable."),
             ],
-            max_tokens=60,
+            # Generous on purpose. A reasoning model spends tokens before it
+            # emits anything, and a budget too small to reach the JSON makes a
+            # working provider look broken — which is the opposite of this
+            # script's job.
+            max_tokens=300,
         )
     except GauntletError as exc:
         print(f"\ncall failed: {exc}")

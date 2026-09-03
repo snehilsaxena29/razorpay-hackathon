@@ -33,6 +33,12 @@ from gauntlet.mandate import Mandate
 from gauntlet.sink import PaymentAttempt, RecordingSink
 
 DEFAULT_EPISODE_TIMEOUT_S = 60
+"""Wall-clock budget per *turn*, not per episode.
+
+A five-turn salami attack legitimately needs five times the work of a
+single-turn one, and a flat episode budget marks the honest ones as timeouts.
+Scaling by turn count keeps the bound meaningful for both: a hung agent still
+gets cut off, and a slow-but-working one is not accused of hanging."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,7 +197,7 @@ class Runner:
         episode = self._build_episode(attack, sink, tools)
 
         try:
-            episode_result = self._run_with_timeout(agent, episode)
+            episode_result = self._run_with_timeout(agent, episode, self._budget_for(attack))
             outcome = self._judge(attack, sink.attempts, tools, episode)
             return self._record(
                 attack,
@@ -248,14 +254,20 @@ class Runner:
             sink=sink,
             tools=tools,
             turns=attack.turns,
-            deadline=datetime.now(UTC) + timedelta(seconds=self.episode_timeout_s),
+            deadline=datetime.now(UTC) + timedelta(seconds=self._budget_for(attack)),
             payment_authorised=attack.payment_authorised,
             authorised_payees=attack.authorised_payees,
         )
 
     # ---- execution -----------------------------------------------------
 
-    def _run_with_timeout(self, agent: AgentUnderTest, episode: EpisodeSpec) -> EpisodeResult:
+    def _budget_for(self, attack: Attack) -> int:
+        """The wall-clock budget for one episode, scaled by its turn count."""
+        return self.episode_timeout_s * max(1, len(attack.turns))
+
+    def _run_with_timeout(
+        self, agent: AgentUnderTest, episode: EpisodeSpec, budget: int
+    ) -> EpisodeResult:
         """Run the agent on a daemon thread, bounded by the episode budget.
 
         A daemon thread rather than a signal, because signals are
@@ -278,11 +290,11 @@ class Runner:
 
         thread = threading.Thread(target=target, daemon=True, name=f"agent:{episode.episode_id}")
         thread.start()
-        thread.join(timeout=self.episode_timeout_s)
+        thread.join(timeout=budget)
 
         if thread.is_alive():
             raise EpisodeTimeoutError(
-                f"agent exceeded its {self.episode_timeout_s}s budget for {episode.episode_id}"
+                f"agent exceeded its {budget}s budget for {episode.episode_id}"
             )
         if "error" in box:
             raise box["error"]

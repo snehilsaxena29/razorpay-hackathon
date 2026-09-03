@@ -37,6 +37,13 @@ from gauntlet.money import format_minor
 #: against a paid provider is a bill rather than a test.
 MAX_STEPS_PER_TURN = 8
 
+#: Completion budget per step. Generous because reasoning models spend tokens
+#: *before* they emit anything, and those count against this limit: at 400 the
+#: default model produced an empty completion and the provider rejected it as
+#: invalid JSON. A budget too small to reach the answer looks exactly like a
+#: broken provider, which cost a full run to work out.
+MAX_COMPLETION_TOKENS = 1200
+
 #: How much of a tool result to put in the prompt. Long enough that an injection
 #: buried in a page still reaches the agent — trimming it away would make the
 #: harness look effective for the wrong reason.
@@ -169,7 +176,9 @@ class LLMAgent:
                 second when the first happened would be a false PASS.
         """
         try:
-            return self.client.complete_json(history, max_tokens=400, temperature=0.0)
+            return self.client.complete_json(
+                history, max_tokens=MAX_COMPLETION_TOKENS, temperature=0.0
+            )
         except ProviderError as exc:
             raise AgentError(f"provider failed while driving {self.name}: {exc}") from exc
 

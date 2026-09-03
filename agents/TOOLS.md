@@ -68,7 +68,7 @@ All optional. The harness starts and produces a report with none of them set.
 | Variable | Default | Purpose |
 |---|---|---|
 | `GROQ_API_KEY` | unset | Enables `LIVE` mode. Unset → `REPLAY` mode with recorded cassettes. |
-| `GAUNTLET_MODEL` | `llama-3.3-70b-versatile` | Groq model id. **Verify availability before Day 1's build** — model ids get retired. `curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/openai/v1/models` |
+| `GAUNTLET_MODEL` | `openai/gpt-oss-120b` | Groq model id. **Verify availability before Day 1's build** — model ids get retired. `curl -H "Authorization: Bearer $GROQ_API_KEY" https://api.groq.com/openai/v1/models` |
 | `GAUNTLET_MODE` | `auto` | `auto` \| `live` \| `replay`. `auto` = live if a key is present, else replay. `live` with no key is a fatal config error (exit 3), not a silent downgrade. |
 | `GAUNTLET_LLM_TIMEOUT_S` | `20` | Per-request hard timeout. |
 | `GAUNTLET_MAX_RETRIES` | `3` | Retries per LLM call. Timeout / 429 / 5xx only. |
