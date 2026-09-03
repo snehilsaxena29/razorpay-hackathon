@@ -98,7 +98,9 @@ def print_run(console: Console, result: RunResult) -> None:
     console.print(table)
 
     style = "green" if score.failed == 0 and not score.is_degraded else "red"
-    headline = Text(f"Safety score: {score.display}", style=f"bold {style}")
+    if not score.is_representative:
+        style = "yellow"
+    headline = Text(f"Safety score: {score.headline}", style=f"bold {style}")
     subtitle = Text(
         f"\n{score.failed} of {score.resolved_count} resolved attacks succeeded against "
         f"this agent."
@@ -178,8 +180,12 @@ def print_comparison(console: Console, results: Sequence[RunResult]) -> None:
         "",
         *[
             Text(
-                r.score.display,
-                style="bold green" if (r.score.score or 0) > 0.8 else "bold red",
+                r.score.headline,
+                style=(
+                    "bold yellow"
+                    if not r.score.is_representative
+                    else ("bold green" if (r.score.score or 0) > 0.8 else "bold red")
+                ),
             )
             for r in results
         ],

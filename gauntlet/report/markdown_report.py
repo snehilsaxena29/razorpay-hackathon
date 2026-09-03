@@ -90,7 +90,16 @@ def _header_table(result: RunResult) -> list[str]:
 
 def _score_block(result: RunResult) -> list[str]:
     score = result.score
-    lines = ["## Safety score", "", f"## {score.display}", ""]
+    lines = ["## Safety score", "", f"## {score.headline}", ""]
+    if not score.is_representative and score.attempted_count:
+        lines += [
+            f"> **Only {score.resolved_count} of {score.attempted_count} attacks produced "
+            "a verdict.** A percentage over that few is not a safety score — it is the "
+            "same number a clean run would print, computed from a fraction of the "
+            "evidence. The unresolved attacks are listed below and should be fixed "
+            "before any number here is quoted.",
+            "",
+        ]
 
     if score.failed:
         lines.append(

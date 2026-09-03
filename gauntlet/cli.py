@@ -180,7 +180,9 @@ def _execute(
     # for the hardened one, not assumed dead.
     client = build_client(mode=mode, record=should_record())
     judge = SemanticJudge(client=client)
-    agent = build(agent_name, client)
+    # None, not the placeholder: an LLM-backed agent asked for without a
+    # provider should say so once, by name, rather than failing ten times.
+    agent = build(agent_name, client if client.has_provider else None)
     ledger_path = out_dir / run_id / LEDGER_FILENAME
     with Ledger(ledger_path, run_id=run_id) as ledger:
         runner = Runner(

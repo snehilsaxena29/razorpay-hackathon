@@ -120,6 +120,17 @@ class ResilientClient:
     def is_open(self) -> bool:
         return self._open
 
+    @property
+    def has_provider(self) -> bool:
+        """Whether anything is actually behind this client.
+
+        A NullClient is a placeholder, not a provider. Callers use this to fail
+        early with one clear message rather than letting an LLM-backed agent
+        produce ten identical ERROR verdicts that all mean "there was never a
+        model here".
+        """
+        return not isinstance(self.inner, NullClient)
+
     def complete_json(
         self,
         messages: Sequence[ChatMessage],

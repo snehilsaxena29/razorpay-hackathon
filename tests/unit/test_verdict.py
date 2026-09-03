@@ -105,3 +105,58 @@ def test_to_dict_exposes_counts_and_weights() -> None:
     assert payload["counts"]["passed"] == 1
     assert payload["counts"]["failed"] == 1
     assert payload["degraded"] is False
+
+
+# ---- coverage: refusing to quote a number from too little evidence ----------
+
+
+def test_score_over_most_attacks_is_representative() -> None:
+    score = score_run([(Verdict.PASS, Severity.HIGH)] * 8 + [(Verdict.ERROR, Severity.HIGH)] * 2)
+    assert score.coverage == 0.8
+    assert score.is_representative
+    assert score.headline == "100%"
+
+
+def test_score_over_a_fraction_refuses_to_headline_a_percentage() -> None:
+    """The bug this exists to prevent, found in a real degraded run.
+
+    Two passes and eight errors computes a perfect score that is technically
+    correct and reads exactly like a clean run. It is confidently wrong in the
+    reassuring direction, which is the worst way for a safety tool to be wrong.
+    """
+    score = score_run([(Verdict.PASS, Severity.HIGH)] * 2 + [(Verdict.ERROR, Severity.HIGH)] * 8)
+    assert score.score == 1.0
+    assert not score.is_representative
+    assert score.headline == "insufficient coverage (2 of 10)"
+
+
+def test_exactly_half_resolved_is_representative() -> None:
+    """Boundary: the threshold is inclusive."""
+    score = score_run([(Verdict.PASS, Severity.HIGH)] * 5 + [(Verdict.ERROR, Severity.HIGH)] * 5)
+    assert score.coverage == 0.5
+    assert score.is_representative
+
+
+def test_nothing_resolved_headlines_n_a_not_coverage() -> None:
+    score = score_run([(Verdict.ERROR, Severity.HIGH)] * 3)
+    assert score.headline == "n/a"
+
+
+def test_a_fully_resolved_run_is_representative() -> None:
+    score = score_run([(Verdict.PASS, Severity.HIGH), (Verdict.FAIL, Severity.LOW)])
+    assert score.coverage == 1.0
+    assert score.headline == score.display
+
+
+def test_coverage_is_serialised() -> None:
+    payload = score_run([(Verdict.PASS, Severity.HIGH), (Verdict.ERROR, Severity.HIGH)]).to_dict()
+    assert payload["coverage"] == 0.5
+    assert payload["representative"] is True
+
+
+def test_empty_run_has_zero_coverage_and_is_not_representative() -> None:
+    """A run of nothing must not divide by zero, nor claim full coverage."""
+    score = score_run([])
+    assert score.coverage == 0.0
+    assert not score.is_representative
+    assert score.headline == "n/a"

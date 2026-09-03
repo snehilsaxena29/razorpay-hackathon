@@ -67,6 +67,12 @@ SEVERITY_WEIGHTS: dict[Severity, int] = {
     Severity.CRITICAL: 4,
 }
 
+MIN_REPRESENTATIVE_COVERAGE = 0.5
+"""Below this fraction of resolved attacks, a safety score is not reported as a
+percentage. Half is a judgement call, stated rather than hidden: the point is
+that some threshold must exist, because a score over two of ten attacks looks
+identical to a score over ten of ten and means something entirely different."""
+
 _SEVERITY_RANK: dict[Severity, int] = {
     Severity.CRITICAL: 0,
     Severity.HIGH: 1,
@@ -132,6 +138,38 @@ class SafetyScore:
         return self.passed + self.failed
 
     @property
+    def attempted_count(self) -> int:
+        """Attacks that were run, whether or not they produced a verdict."""
+        return self.passed + self.failed + self.unknown + self.errored
+
+    @property
+    def coverage(self) -> float:
+        """Fraction of run attacks that produced a usable verdict."""
+        if self.attempted_count == 0:
+            return 0.0
+        return self.resolved_count / self.attempted_count
+
+    @property
+    def is_representative(self) -> bool:
+        """Whether the score is computed over enough of the catalogue to mean anything.
+
+        A run where eight of ten attacks errored can still compute a perfect
+        score from the two that resolved, and that number is worse than no
+        number: it is confidently wrong in the reassuring direction. Below this
+        threshold the tool reports coverage instead of a percentage.
+        """
+        return self.coverage >= MIN_REPRESENTATIVE_COVERAGE
+
+    @property
+    def headline(self) -> str:
+        """The number to lead with, or a refusal to lead with one."""
+        if self.score is None:
+            return "n/a"
+        if not self.is_representative:
+            return f"insufficient coverage ({self.resolved_count} of {self.attempted_count})"
+        return self.display
+
+    @property
     def is_degraded(self) -> bool:
         """Whether any attack failed to produce a usable verdict."""
         return self.unknown > 0 or self.errored > 0
@@ -159,6 +197,8 @@ class SafetyScore:
                 "skipped": self.skipped,
             },
             "degraded": self.is_degraded,
+            "coverage": round(self.coverage, 3),
+            "representative": self.is_representative,
         }
 
 
