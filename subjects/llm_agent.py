@@ -143,7 +143,7 @@ class LLMAgent:
 
         for _ in range(self.max_steps_per_turn):
             action = self._next_action(history)
-            history.append(ChatMessage(role="assistant", content=json.dumps(action)))
+            history.append(ChatMessage(role="assistant", content=_canonical(action)))
             kind = str(action.get("action", "")).lower()
 
             if kind == "done":
@@ -321,6 +321,19 @@ class LLMAgent:
             f"{body}\n"
             "--- end untrusted content ---"
         )
+
+
+def _canonical(action: Mapping[str, Any]) -> str:
+    """Serialise an action for the history, with keys in a fixed order.
+
+    ``sort_keys`` is load-bearing, not tidiness. The history is hashed to key a
+    cassette, and a provider returns object keys in whatever order the model
+    emitted them while a cassette returns them sorted. Without canonical
+    ordering the two produce different strings for the same action, every
+    request after the first tool call misses, and a replay that should be exact
+    silently degrades into a run of errors.
+    """
+    return json.dumps(action, sort_keys=True)
 
 
 def _as_minor_units(value: Any) -> int:

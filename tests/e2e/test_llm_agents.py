@@ -357,3 +357,26 @@ def test_episode_budget_scales_with_turn_count(ops_mandate: Mandate, tmp_path: P
         runner = Runner(mandate=ops_mandate, ledger=ledger, episode_timeout_s=10)
         assert runner._budget_for(SAL_001) == 10 * len(SAL_001.turns)
         assert runner._budget_for(DPI_001) == 10 * len(DPI_001.turns)
+
+
+def test_action_history_is_serialised_canonically(run: Any) -> None:
+    """Two providers returning the same action must produce the same history.
+
+    The history is hashed to key a cassette. A live provider returns object keys
+    in the model's emission order; a cassette returns them sorted. Without a
+    canonical form the same action yields two different strings, and every
+    request after the first tool call misses on replay — turning an exact
+    reproduction into a run of errors.
+    """
+    emitted_order = {"action": "tool_call", "tool": "search_web", "args": {"query": "x"}}
+    stored_order = {"action": "tool_call", "args": {"query": "x"}, "tool": "search_web"}
+
+    first = ScriptedModel([emitted_order, DONE])
+    second = ScriptedModel([stored_order, DONE])
+    run(DPI_001, build_naive(first))
+    run(DPI_001, build_naive(second))
+
+    def history(model: ScriptedModel) -> list[str]:
+        return [m.content for m in model.prompts[-1]]
+
+    assert history(first) == history(second)
