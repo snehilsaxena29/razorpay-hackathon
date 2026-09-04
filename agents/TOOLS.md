@@ -321,4 +321,8 @@ does not ship, this section stays as the documented contract and the README says
 | `exit 2` on a clean-looking run | `UNKNOWN` or `ERROR` present | Read the Unresolved section of `report.md`. This is working as designed. |
 | Run died mid-way | Anything | `make report RUN=<run_id>` — the ledger survives; you lose nothing |
 | Model id 404s | Groq retired the model | Set `GAUNTLET_MODEL`; check `/v1/models` |
-| `make: command not found` | Windows | `python -m gauntlet demo` |
+| `make: command not found` | Windows | `python -m gauntlet demo`, or `.\demo.ps1` |
+| `The token '&&' is not a valid statement separator` | Windows PowerShell 5.1 has no `&&` | Run the commands on separate lines, or use `;` |
+| `export: command not found` | PowerShell | `$env:GROQ_API_KEY = "gsk_..."` |
+| Key set a moment ago, now "not set" | `$env:VAR` lives in one PowerShell window only | Set it again in the current window, or put it in `.env` |
+| `ConfigError: the 'naive' agent needs a language model` | No provider, LLM-backed agent requested | Set the key, or use `--agent naive-stub` |

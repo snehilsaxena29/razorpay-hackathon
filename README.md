@@ -24,11 +24,19 @@ make demo
 
 **No API key needed.** No network needed. Under four minutes.
 
-On Windows, or anywhere without `make`:
+### On Windows
 
-```bash
+`make` is usually absent and Windows PowerShell 5.1 has no `&&`, so paste these
+one line at a time rather than the block above:
+
+```powershell
+python -m pip install -e ".[dev]"
 python -m gauntlet demo
 ```
+
+Or `.\demo.ps1`, which is the same thing plus the console encoding fix that
+stops `₹` crashing a legacy code page. The CLI — not `make` — is the real
+interface; every target has a `python -m gauntlet` equivalent.
 
 You get this — the same agent-shaped task, run against an undefended agent and a
 hardened one:
@@ -221,9 +229,19 @@ gauntlet list attacks
 gauntlet report <run_id>                        # rebuild from the ledger
 ```
 
-Set `GROQ_API_KEY` to run the LLM-backed agents live instead of the deterministic
-stubs. The report header always says which mode produced it — **a replayed run is
-never presented as a live one.**
+Set `GROQ_API_KEY` to run the LLM-backed agents (`--agent naive` / `hardened`)
+instead of the deterministic stubs. The report header always says which mode
+produced it — **a replayed run is never presented as a live one.**
+
+```bash
+export GROQ_API_KEY=gsk_...          # bash / zsh
+```
+```powershell
+$env:GROQ_API_KEY = "gsk_..."        # PowerShell, this window only
+```
+
+Asking for an LLM-backed agent without a provider fails immediately with a
+message naming the stub alternative, rather than ten identical errors.
 
 ## Limitations, stated rather than found
 

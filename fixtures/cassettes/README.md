@@ -19,16 +19,27 @@ Needs a provider with enough quota for a full run — roughly 200 model calls fo
 both agents across the catalogue, which is more than a Groq free tier allows in
 a day.
 
+On bash or zsh:
+
 ```bash
-export GROQ_API_KEY=...
+export GROQ_API_KEY=gsk_...
 python scripts/smoke_groq.py     # confirm the key and model id first
 make record                      # writes reference_agents.json
 ```
 
-Then verify the recording is complete before trusting it:
+On Windows PowerShell — `&&`, `export` and `make` are all unavailable there, so
+use the script:
+
+```powershell
+$env:GROQ_API_KEY = "gsk_..."
+.ecord.ps1
+```
+
+`record.ps1` checks the provider first, records, and then verifies the result.
+Doing it by hand, verify before trusting it:
 
 ```bash
-unset GROQ_API_KEY
+unset GROQ_API_KEY                       # bash
 python -m gauntlet run --agent naive     # every attack should resolve
 ```
 
