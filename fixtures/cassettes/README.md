@@ -1,47 +1,81 @@
 # Cassettes
 
-Recorded provider exchanges, replayed so a run can be reproduced without a key.
+Recorded provider exchanges, replayed so a live run can be reproduced without a
+key or a network.
 
-**This directory ships empty.** A cassette is only useful if it covers a whole
-run: a partial one produces mostly misses, and a run where eight of ten attacks
-miss still computes a safety score from the two that did not. That number reads
-exactly like a clean run and means nothing, which is the most dangerous shape a
-safety report can take. (The harness now refuses to headline a score below 50%
-coverage — see `SafetyScore.is_representative` — but the cassette should be
-whole regardless.)
+## What is here
 
-`make demo` does not need this directory. It runs the deterministic stub agents,
-which need no provider at all.
+`reference_agents.json` — recorded 5 September 2026 against `qwen/qwen3.8-27b`.
 
-## Recording one
+| Agent | Coverage | Replaying gives |
+|---|---|---|
+| `naive` | **complete**, 10 of 10 | 79%, coverage 1.0, zero errors |
+| `hardened` | partial, 6 of 10 | the six resolve; SAL-001, SAL-002, SPF-001 and CDP-001 miss |
 
-Needs a provider with enough quota for a full run — roughly 200 model calls for
-both agents across the catalogue, which is more than a Groq free tier allows in
-a day.
+The hardened recording is incomplete for one reason, and it is not a bug in this
+repository: a Groq free tier allows **200,000 tokens per day**, and a full run
+across both agents costs almost exactly that. The recording ran out of budget
+four attacks from the end.
 
-On bash or zsh:
+That is visible rather than hidden. Replaying `--agent hardened` reports the four
+as `ERROR: no recorded response`, the coverage guard refuses to print a headline
+percentage over the remaining six, and the run exits 2. It never presents a
+partial recording as a clean result.
+
+**`make demo` does not use this file.** It runs the deterministic stub agents,
+which need no provider, no network and no cassette, and it resolves all ten
+attacks in about three seconds. That is the path a reviewer should take.
+
+## Recording a complete one
+
+Needs roughly 200k tokens of quota — a paid tier, or a free tier and two days.
+
+bash or zsh:
 
 ```bash
 export GROQ_API_KEY=gsk_...
-python scripts/smoke_groq.py     # confirm the key and model id first
-make record                      # writes reference_agents.json
+python scripts/smoke_groq.py     # confirm the key and the model id first
+make record
 ```
 
-On Windows PowerShell — `&&`, `export` and `make` are all unavailable there, so
-use the script:
+Windows PowerShell — `&&`, `export` and `make` are all unavailable there:
 
 ```powershell
 $env:GROQ_API_KEY = "gsk_..."
-.ecord.ps1
+.\record.ps1
 ```
 
-`record.ps1` checks the provider first, records, and then verifies the result.
-Doing it by hand, verify before trusting it:
+`record.ps1` checks the provider, records, then verifies by replaying without a
+key. Doing it by hand, verify the same way:
 
 ```bash
-unset GROQ_API_KEY                       # bash
-python -m gauntlet run --agent naive     # every attack should resolve
+unset GROQ_API_KEY
+python -m gauntlet run --agent naive       # every attack should resolve
+python -m gauntlet run --agent hardened
 ```
 
-Any `ERROR: no recorded response` means the cassette is incomplete for that
-prompt. Re-record rather than shipping it.
+Any `ERROR: no recorded response` means the cassette does not cover that prompt.
+Re-record rather than shipping it — a partial cassette that goes unnoticed is
+how a run of errors gets mistaken for a run of results.
+
+## Why replay is exact
+
+The cassette is keyed on a hash of the full message list, so a changed prompt
+misses rather than silently replaying a recording made for different input.
+
+That makes the agent's history hashing-sensitive, which caused a real bug: the
+agent writes each action back into its own history with `json.dumps`, a live
+provider returns object keys in the model's emission order, and a cassette
+returns them sorted. Same action, two different strings, every request after the
+first tool call missing. `subjects/llm_agent.py::_canonical` sorts keys for that
+reason, and a test drives the same agent with both orderings to keep it true.
+
+## A note on determinism
+
+Temperature is 0, but hosted models are not fully deterministic. Two complete
+live runs of the naive agent scored 64% and 79%, failing different subsets.
+
+What did not vary: it failed the arithmetic and ledger attacks (the caps, the
+rate limit, the approval-prompt comparison) and resisted every persuasion attack
+in both runs. The specific numbers move; the pattern does not, and the pattern is
+the finding.
