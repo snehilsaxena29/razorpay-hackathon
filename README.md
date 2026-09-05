@@ -296,6 +296,4 @@ Conventions are in [agents/CONVENTIONS.md](agents/CONVENTIONS.md). The one that
 matters most: **never swallow an exception.** A safety check that fails quietly
 reports the agent as safe, which is the worst outcome this tool can produce.
 
-## Licence
 
-MIT.
